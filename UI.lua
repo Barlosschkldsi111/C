@@ -182,9 +182,9 @@ GlobalWindow.ResetOnSpawn = false;
 GlobalWindow.Parent = CoreGui;
 
 NeverLose.Scales = {
-	Small = UDim2.fromOffset(540,600),
-	Mobile = UDim2.fromOffset(640,600),
-	Default = UDim2.fromOffset(640 , 600),
+	Small = UDim2.fromOffset(800,380),
+	Mobile = UDim2.fromOffset(800,385),
+	Default = UDim2.fromOffset(800 , 480),
 	Large = UDim2.fromOffset(800 , 600)
 };
 
