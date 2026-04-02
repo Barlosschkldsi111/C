@@ -2949,8 +2949,10 @@ function NeverLose:RegisiterHandler(Handler: Frame , Signal)
 		SearchBox.Parent = DropdownHandler
 		SearchBox.ClearTextOnFocus = false
 		SearchBox.TextXAlignment = Enum.TextXAlignment.Left
+
 		local OriginalGenerate = DropdownLib.Generate
-		function DropdownLib:Generate()
+
+		local function FilterValues()
 			local searchText = SearchBox.Text:lower()
 			local filteredValues = {}
 			for _, v in ipairs(Config.Values) do
@@ -2958,30 +2960,31 @@ function NeverLose:RegisiterHandler(Handler: Frame , Signal)
 					table.insert(filteredValues, v)
 				end
 			end
-			local originalValues = Config.Values
-			Config.Values = filteredValues
-			OriginalGenerate(self)
-			Config.Values = originalValues
+			return filteredValues
 		end
-		SearchBox:GetPropertyChangedSignal("Text"):Connect(function()
-			DropdownLib:Generate()
-		end)
-		function OriginalGenerate(self)
-			for i,v in next , DropdownLib.RootItem:GetChildren() do
-				if v:IsA('Frame') then
+
+		function DropdownLib:Generate()
+			-- ลบไอเทมเก่า
+			for i, v in next, DropdownLib.RootItem:GetChildren() do
+				if v:IsA("Frame") then
 					v:Destroy()
 				end
 			end
-			for i,v in next , DropdownLib.Signals do
+
+			for i, v in next, DropdownLib.Signals do
 				v:Disconnect()
 			end
 			table.clear(DropdownLib.Signals)
 			table.clear(DropdownLib.Refuse)
+
 			local Lastone
-			for i,Value in next , Config.Values do
+			local valuesToShow = FilterValues()
+
+			for i, Value in next, valuesToShow do
 				local ItemFrame = Instance.new("Frame")
 				local ItemLabel = Instance.new("TextLabel")
 				local UICorner = Instance.new("UICorner")
+
 				ItemFrame.Name = NeverLose.RandomString()
 				ItemFrame.Parent = DropdownLib.RootItem
 				ItemFrame.BackgroundColor3 = Color3.fromRGB(29, 31, 38)
@@ -2989,12 +2992,12 @@ function NeverLose:RegisiterHandler(Handler: Frame , Signal)
 				ItemFrame.BorderSizePixel = 0
 				ItemFrame.Size = UDim2.new(1, 0, 0, 25)
 				ItemFrame.ZIndex = ZINdex + 1258
+
 				ItemLabel.Name = NeverLose.RandomString()
 				ItemLabel.Parent = ItemFrame
 				ItemLabel.BackgroundTransparency = 1
-				ItemLabel.BorderSizePixel = 0
 				ItemLabel.Position = UDim2.new(0, 15, 0, 4)
-				ItemLabel.Size = UDim2.new(0,1, 0, 15)
+				ItemLabel.Size = UDim2.new(0, 1, 0, 15)
 				ItemLabel.ZIndex = ZINdex + 1258
 				ItemLabel.Font = Enum.Font.GothamMedium
 				ItemLabel.Text = tostring(Value)
@@ -3002,11 +3005,15 @@ function NeverLose:RegisiterHandler(Handler: Frame , Signal)
 				ItemLabel.TextSize = 13
 				ItemLabel.TextTransparency = 0.2
 				ItemLabel.TextXAlignment = Enum.TextXAlignment.Left
+
 				UICorner.CornerRadius = UDim.new(0, 10)
 				UICorner.Parent = ItemFrame
-				local sizetext = TextService:GetTextSize(ItemLabel.Text , ItemLabel.TextSize, ItemLabel.Font, Vector2.new(math.huge, math.huge))
+
+				local sizetext = TextService:GetTextSize(ItemLabel.Text, ItemLabel.TextSize, ItemLabel.Font, Vector2.new(math.huge, math.huge))
 				DropdownLib.ExtentSize = math.max(DropdownLib.ExtentSize, sizetext.X)
+
 				local MIcon, MarkItem = nil, nil
+
 				if Config.Multi then
 					local Icon = Instance.new("TextLabel")
 					Icon.Parent = ItemFrame
@@ -3014,12 +3021,14 @@ function NeverLose:RegisiterHandler(Handler: Frame , Signal)
 					Icon.BackgroundTransparency = 1
 					Icon.Position = UDim2.new(0, 5, 0.5, 0)
 					Icon.Size = UDim2.new(0, 20, 0, 20)
+					Icon.ZIndex = ZINdex + 1259
 					Icon.FontFace = NeverLose.BuiltInBold
 					Icon.Text = "check"
 					Icon.TextColor3 = Color3.fromRGB(223, 223, 223)
 					Icon.TextSize = 18
 					Icon.TextTransparency = 1
 					Icon.TextWrapped = true
+
 					local VisiblewOfMult = LPH_NO_VIRTUALIZE(function()
 						if DropdownLib.IsMatch(Value) then
 							NeverLose.PlayAnimate(ItemLabel, VSlowTween, {TextTransparency = 0.2, Position = UDim2.new(0, 30, 0, 4)})
@@ -3030,6 +3039,7 @@ function NeverLose:RegisiterHandler(Handler: Frame , Signal)
 							NeverLose.PlayAnimate(ItemLabel, VSlowTween, {TextTransparency = 0.5, Position = UDim2.new(0, 15, 0, 4)})
 						end
 					end)
+
 					MIcon = Icon
 					MarkItem = VisiblewOfMult
 				else
@@ -3043,6 +3053,7 @@ function NeverLose:RegisiterHandler(Handler: Frame , Signal)
 					end)
 					MarkItem = DefaultVisible
 				end
+
 				MarkItem()
 				table.insert(DropdownLib.Refuse, MarkItem)
 
@@ -3052,6 +3063,18 @@ function NeverLose:RegisiterHandler(Handler: Frame , Signal)
 				table.insert(DropdownLib.Signals, ItemFrame.MouseLeave:Connect(LPH_NO_VIRTUALIZE(function()
 					NeverLose.PlayAnimate(ItemFrame, SlowyTween, {BackgroundTransparency = 1})
 				end)))
+
+				table.insert(DropdownLib.Signals, DropdownLib.OpenSignal:Connect(LPH_NO_VIRTUALIZE(function(val)
+					if val then
+						MarkItem()
+					else
+						NeverLose.PlayAnimate(ItemLabel, SlowyTween, {TextTransparency = 1})
+						if MIcon then
+							NeverLose.PlayAnimate(MIcon, SlowyTween, {TextTransparency = 1})
+						end
+					end
+				end)))
+
 				if Config.Multi then
 					local _, bth_signal = NeverLose:CreateInput(ItemFrame, LPH_NO_VIRTUALIZE(function()
 						Config.Default[Value] = not Config.Default[Value]
@@ -3063,7 +3086,9 @@ function NeverLose:RegisiterHandler(Handler: Frame , Signal)
 				else
 					local _, bth_signal = NeverLose:CreateInput(ItemFrame, LPH_NO_VIRTUALIZE(function()
 						Config.Default = Value
-						for _, v in next, DropdownLib.Refuse do task.spawn(v) end
+						for i,v in next , DropdownLib.Refuse do
+							task.spawn(v)
+						end
 						BasedLabel.Text = NeverLose.ParseDropdown(Config.Default)
 						Config.Callback(Config.Default)
 					end))
@@ -3071,8 +3096,12 @@ function NeverLose:RegisiterHandler(Handler: Frame , Signal)
 				end
 			end
 		end
-		
+
 		DropdownLib:Generate()
+
+		SearchBox:GetPropertyChangedSignal("Text"):Connect(function()
+			DropdownLib:Generate()
+		end)
 
 		function DropdownLib:GetValue()
 			return Config.Default;
