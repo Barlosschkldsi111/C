@@ -2812,19 +2812,6 @@ function NeverLose:RegisiterHandler(Handler: Frame , Signal)
 			DropdownHandler.ZIndex = ZINdex + 125
 			DropdownLib.BlockRoot = DropdownHandler;
 
-			-- Add Search Box Here
-			local SearchBox = Instance.new("TextBox")
-			SearchBox.Parent = DropdownHandler
-			SearchBox.Size = UDim2.new(1, -10, 0, 25)
-			SearchBox.Position = UDim2.new(0, 5, 0, 5)
-			SearchBox.BackgroundColor3 = Color3.fromRGB(35, 37, 45)
-			SearchBox.TextColor3 = Color3.fromRGB(255, 255, 255)
-			SearchBox.PlaceholderText = "Search..."
-			SearchBox.ClearTextOnFocus = false
-			SearchBox.Font = Enum.Font.Gotham
-			SearchBox.TextSize = 12
-			-- End Search Box
-
 			NeverLose:AddSignal(DropdownHandler:GetPropertyChangedSignal('BackgroundTransparency'):Connect(function()
 				if DropdownHandler.BackgroundTransparency > 0.9 then
 					DropdownHandler.Visible = false;
@@ -2967,11 +2954,6 @@ function NeverLose:RegisiterHandler(Handler: Frame , Signal)
 
 			local Lastone;
 			for i,Value in next , Config.Values do
-				-- Filter based on SearchBox text
-				if SearchBox.Text ~= "" and not tostring(Value):lower():find(SearchBox.Text:lower()) then
-					continue
-				end
-
 				local ItemFrame = Instance.new("Frame")
 				local ItemLabel = Instance.new("TextLabel")
 				local UICorner = Instance.new("UICorner")
@@ -3091,131 +3073,174 @@ function NeverLose:RegisiterHandler(Handler: Frame , Signal)
 
 				table.insert(DropdownLib.Signals , DropdownLib.OpenSignal:Connect(LPH_NO_VIRTUALIZE(function(val)
 					if val then
-						MarkItem()
-					end
-				end)))
-				
-				ItemFrame.MouseButton1Click:Connect(LPH_NO_VIRTUALIZE(function()
-					if Config.Multi then
-						if DropdownLib.IsMatch(Value) then
-							if typeof(Config.Default) == "table" then
-								if table.find(Config.Default, Value) then
-									table.remove(Config.Default, table.find(Config.Default, Value))
-								end
-							end
-						else
-							if typeof(Config.Default) == "table" then
-								table.insert(Config.Default, Value)
-							end
-						end
+						MarkItem();
 					else
-						Config.Default = Value
-					end
+						NeverLose.PlayAnimate(ItemLabel , SlowyTween , {
+							TextTransparency = 1
+						})
 
-					BasedLabel.Text = NeverLose.ParseDropdown(Config.Default)
-					Config.Callback(Config.Default)
-					for _, func in ipairs(DropdownLib.Refuse) do
-						func()
-					end
-				end))
+						if MIcon then
+							NeverLose.PlayAnimate(MIcon , SlowyTween , {
+								TextTransparency = 1
+							})
+						end;
+					end;
+				end)));
 
-			DropdownLib:Generate()
+				if Config.Multi then
+					local _,bth_signal = NeverLose:CreateInput(ItemFrame , LPH_NO_VIRTUALIZE(function()
+						Config.Default[Value] = not Config.Default[Value];
 
-			SearchBox:GetPropertyChangedSignal("Text"):Connect(function()
-				DropdownLib:Generate()
-			end)
+						MarkItem();
 
-			function DropdownLib:GetValue()
-				return Config.Default;
-			end;
+						BasedLabel.Text = NeverLose.ParseDropdown(Config.Default);
 
-			function DropdownLib:SetValue(v)
-				Config.Default = v;
+						Config.Callback(Config.Default);
+					end));
 
-				BasedLabel.Text = NeverLose.ParseDropdown(Config.Default);
+					table.insert(DropdownLib.Signals , bth_signal);
+				else
+					local _,bth_signal = NeverLose:CreateInput(ItemFrame , LPH_NO_VIRTUALIZE(function()
+						Config.Default = Value;
 
-				for i,v in next , DropdownLib.Refuse do
-					task.spawn(v);
+						for i,v in next , DropdownLib.Refuse do
+							task.spawn(v);
+						end;
+
+						BasedLabel.Text = NeverLose.ParseDropdown(Config.Default);
+
+						Config.Callback(Config.Default);
+					end));
+
+					table.insert(DropdownLib.Signals , bth_signal);
 				end;
-
-				Config.Callback(Config.Default);
 			end;
-
-			function DropdownLib:SetValues(a)
-				Config.Values = a;
-
-				if not Config.AutoUpdate then
-					DropdownLib:Generate();
-				end;
-			end;
-
-			if Config.Flag then
-				NeverLose.Flags[Config.Flag] = DropdownLib;
-			end;
-
-			return DropdownLib;
 		end;
 
-		return handle;
+		DropdownLib:Generate();
+
+		local SearchBox = Instance.new("TextBox")
+		SearchBox.Name = "SearchBox"
+		SearchBox.PlaceholderText = "Search"
+		SearchBox.BackgroundColor3 = Color3.fromRGB(35, 37, 47)
+		SearchBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+		SearchBox.TextSize = 13
+		SearchBox.Size = UDim2.new(1, -10, 0, 20)
+		SearchBox.Position = UDim2.new(0, 5, 0, 5)
+		SearchBox.Parent = DropdownHandler
+		SearchBox.ClearTextOnFocus = false
+		SearchBox.TextXAlignment = Enum.TextXAlignment.Left
+
+		local OriginalGenerate = DropdownLib.Generate
+		function DropdownLib:Generate()
+			local searchText = SearchBox.Text:lower()
+			local filteredValues = {}
+			for _, v in ipairs(Config.Values) do
+				if tostring(v):lower():find(searchText) then
+					table.insert(filteredValues, v)
+				end
+			end
+			local originalValues = Config.Values
+			Config.Values = filteredValues
+			OriginalGenerate(self)
+			Config.Values = originalValues
+		end
+		
+		SearchBox:GetPropertyChangedSignal("Text"):Connect(function()
+			DropdownLib:Generate()
+		end)
+
+		function DropdownLib:GetValue()
+			return Config.Default;
+		end;
+
+		function DropdownLib:SetValue(v)
+			Config.Default = v;
+
+			BasedLabel.Text = NeverLose.ParseDropdown(Config.Default);
+
+			for i,v in next , DropdownLib.Refuse do
+				task.spawn(v);
+			end;
+
+			Config.Callback(Config.Default);
+		end;
+
+		function DropdownLib:SetValues(a)
+			Config.Values = a;
+
+			if not Config.AutoUpdate then
+				DropdownLib:Generate();
+			end;
+		end;
+
+		if Config.Flag then
+			NeverLose.Flags[Config.Flag] = DropdownLib;
+		end;
+
+		return DropdownLib;
 	end;
 
-	NeverLose.ProcessDropdown = LPH_NO_VIRTUALIZE(function(value)
-		if typeof(value) == 'table' then
-			local data = {};
+	return handle;
+end;
+
+NeverLose.ProcessDropdown = LPH_NO_VIRTUALIZE(function(value)
+	if typeof(value) == 'table' then
+		local data = {};
+
+		for i,v in next , value do
+			if typeof(v) == 'boolean' and typeof(i) ~= 'number' then
+				data[i] = v;
+			else
+				data[v] = true;
+			end;
+		end;
+
+		return data;
+	else
+		return value;
+	end;
+end);
+
+NeverLose.ParseDropdown = LPH_NO_VIRTUALIZE(function(value)
+	if not value then return 'Select'; end;
+
+	local Out;
+
+	if typeof(value) == 'table' then
+		if #value > 0 then
+			local x = {};
 
 			for i,v in next , value do
-				if typeof(v) == 'boolean' and typeof(i) ~= 'number' then
-					data[i] = v;
-				else
-					data[v] = true;
-				end;
+				table.insert(x , tostring(v))
 			end;
 
-			return data;
+			Out = table.concat(x,' , ');
+
+			table.clear(x);
 		else
-			return value;
-		end;
-	end);
+			local x = {};
 
-	NeverLose.ParseDropdown = LPH_NO_VIRTUALIZE(function(value)
-		if not value then return 'Select'; end;
-
-		local Out;
-
-		if typeof(value) == 'table' then
-			if #value > 0 then
-				local x = {};
-
-				for i,v in next , value do
-					table.insert(x , tostring(v))
-				end;
-
-				Out = table.concat(x,' , ');
-
-				table.clear(x);
-			else
-				local x = {};
-
-				for i,v in next , value do
-					if v == true then
-						table.insert(x , tostring(i));
-					end			
-				end;
-
-				Out = table.concat(x,' , ');
-
-				table.clear(x)
-
-				if not Out:byte() then
-					Out = 'Select';
-				end
+			for i,v in next , value do
+				if v == true then
+					table.insert(x , tostring(i));
+				end			
 			end;
-		else
-			Out = tostring(value or 'Select');
-		end;
 
-		return Out;
-	end);
+			Out = table.concat(x,' , ');
+
+			table.clear(x)
+
+			if not Out:byte() then
+				Out = 'Select';
+			end
+		end;
+	else
+		Out = tostring(value or 'Select');
+	end;
+
+	return Out;
+end);
 
 function NeverLose:ParseInput(Value , Numeric)
 	if not Value then
@@ -3407,16 +3432,16 @@ function NeverLose:RegisiterItem(Frame: Frame , Signel)
 		BasedFrame.BackgroundColor3 = Color3.fromRGB(25, 27, 33)
 		BasedFrame.BackgroundTransparency = 1.000
 		BasedFrame.BorderSizePixel = 0
-		BasedFrame.Size = UDim2.new(1, 0, 0, 30)
+		BasedFrame.Size = UDim2.new(1, 0, 0, 30) -- ความสูงเริ่มต้น
 		BasedFrame.ZIndex = LayerIndex + 8
-		BasedFrame.ClipsDescendants = false
+
 		NeverLose:AddQuery(BasedFrame, Name);
+
 		BasedLabel.Name = NeverLose.RandomString();
 		BasedLabel.Parent = BasedFrame
 		BasedLabel.BackgroundTransparency = 1.000
-		BasedLabel.Position = UDim2.new(0, 11, 0, 8)
-		BasedLabel.Size = UDim2.new(1, -22, 0, 0) 
-		BasedLabel.AutomaticSize = Enum.AutomaticSize.Y
+		BasedLabel.Position = UDim2.new(0, 11, 0, 8) -- ปรับตำแหน่งให้อยู่กลางสวยๆ
+		BasedLabel.Size = UDim2.new(1, -22, 0, 15) -- ความกว้างลบ Padding ออก
 		BasedLabel.ZIndex = LayerIndex + 9
 		BasedLabel.Font = Enum.Font.GothamMedium
 		BasedLabel.Text = Name
@@ -3425,8 +3450,8 @@ function NeverLose:RegisiterItem(Frame: Frame , Signel)
 		BasedLabel.TextTransparency = 0.35
 		BasedLabel.TextXAlignment = Enum.TextXAlignment.Left
 		BasedLabel.TextYAlignment = Enum.TextYAlignment.Top
-		BasedLabel.TextWrapped = true
-		BasedLabel.ClipsDescendants = false
+		BasedLabel.TextWrapped = true -- [[ บังคับให้ข้อความตัดบรรทัดเองเมื่อสุดขอบ ]]
+
 		LineFrame.Name = NeverLose.RandomString();
 		LineFrame.Parent = BasedFrame
 		LineFrame.AnchorPoint = Vector2.new(0.5, 1)
@@ -3435,6 +3460,7 @@ function NeverLose:RegisiterItem(Frame: Frame , Signel)
 		LineFrame.Position = UDim2.new(0.5, 0, 1, 0)
 		LineFrame.Size = UDim2.new(1, -20, 0, 1)
 		LineFrame.ZIndex = LayerIndex + 11
+
 		BasedHandler.Name = NeverLose.RandomString();
 		BasedHandler.Parent = BasedFrame
 		BasedHandler.AnchorPoint = Vector2.new(1, 0)
@@ -3442,12 +3468,14 @@ function NeverLose:RegisiterItem(Frame: Frame , Signel)
 		BasedHandler.Position = UDim2.new(1, -11, 0, 2)
 		BasedHandler.Size = UDim2.new(1, -20, 0, 25)
 		BasedHandler.ZIndex = LayerIndex + 12
+
 		UIListLayout.Parent = BasedHandler
 		UIListLayout.FillDirection = Enum.FillDirection.Horizontal
 		UIListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right
 		UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
 		UIListLayout.VerticalAlignment = Enum.VerticalAlignment.Center
 		UIListLayout.Padding = UDim.new(0, 5)
+
 		UICorner.CornerRadius = UDim.new(0, 10)
 		UICorner.Parent = BasedFrame
 		local UpdateWarp = LPH_NO_VIRTUALIZE(function()
@@ -3466,29 +3494,34 @@ function NeverLose:RegisiterItem(Frame: Frame , Signel)
 			NeverLose.PlayAnimate(BasedFrame, SlowyTween, {
 				Size = UDim2.new(1, 0, 0, finalHeight)
 			})
+
+			BasedLabel.Size = UDim2.new(1, -22, 0, textSize.Y)
 		end);
 		if Warp then
-			task.defer(UpdateWarp)
+			task.defer(UpdateWarp) 
 		end;
 		local handle = NeverLose:RegisiterHandler(BasedHandler, Signel);
 		handle.Root = BasedFrame;
+
 		handle.SetRender = LPH_NO_VIRTUALIZE(function(value)
 			local trans = value and 0.35 or 1
 			NeverLose.PlayAnimate(BasedLabel, SlowyTween, { TextTransparency = trans })
 			NeverLose.PlayAnimate(LineFrame, SlowyTween, { BackgroundTransparency = value and 0.65 or 1 })
 		end);
+
 		function handle:SetText(t)
 			BasedLabel.Text = t
-			if Warp then
-				UpdateWarp()
-			end
+			if Warp then UpdateWarp() end
 		end;
+
 		function handle:ToolTip(Content: string)
 			handle.ToolTip = NeverLose:CreateToolTips(BasedFrame, Name, Content);
 			return handle;
 		end;
+
 		handle.SetRender(Signel:GetValue());
 		Signel:Connect(handle.SetRender);
+
 		return handle;
 	end;
 	function idx:AddButton(Config)
@@ -6576,5 +6609,4 @@ function NeverLose:Unload()
 end;
 
 return NeverLose;
-
 
